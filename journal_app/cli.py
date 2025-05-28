@@ -108,7 +108,7 @@ def search_entries():
                 return
 
             entries = session.query(Entry).filter(
-                Entry.date.like(f"{date_str}%") # Search for date part
+                Entry.date.like(f"{date_str}%") 
             ).order_by(Entry.date.desc()).all()
 
             if not entries:
@@ -139,7 +139,6 @@ def search_entries():
             console.print("[red]Invalid search type. Please choose 'D' or 'K'.[/red]")
             return
 
-        # Display results (reusing the table formatting from view_all_entries)
         table = RichTable(show_header=True, header_style="bold magenta")
         table.add_column("ID", style="dim", width=5)
         table.add_column("Date", style="cyan", width=18)
@@ -159,6 +158,47 @@ def search_entries():
 
     except Exception as e:
         console.print(f"[red]Error searching entries: {e}[/red]")
+    finally:
+        session.close()
+
+def update_entry():
+    """CLI function to update an existing journal entry."""
+    console.print("\n[bold blue]--- Update Journal Entry ---[/bold blue]")
+    try:
+        entry_id = int(console.input("[bold yellow]Enter Entry ID to update: [/bold yellow]"))
+    except ValueError:
+        console.print("[red]Invalid ID. Please enter a number.[/red]")
+        return
+
+    session = get_session()
+    try:
+        entry = session.query(Entry).filter_by(id=entry_id).first()
+        if not entry:
+            console.print(f"[red]Entry with ID {entry_id} not found.[/red]")
+            return
+
+        console.print(f"[green]Found Entry (ID: {entry.id}): {entry.title}[/green]")
+        console.print("[bold yellow]Enter new title (leave blank to keep current): [/bold yellow]")
+        new_title = console.input().strip()
+        if new_title:
+            entry.title = new_title
+
+        console.print("[bold yellow]Enter new content (leave blank to keep current): [/bold yellow]")
+        new_content = console.input().strip()
+        if new_content:
+            entry.content = new_content
+
+        session.commit()
+        console.print(f"[green]Entry ID {entry_id} updated successfully.[/green]")
+
+        # Option to update tags
+        console.print("[bold cyan]Do you want to modify tags for this entry? (y/n)[/bold cyan]")
+        if console.input().lower() == 'y':
+            manage_tags_for_entry(entry.id, session)
+
+    except Exception as e:
+        session.rollback()
+        console.print(f"[red]Error updating entry: {e}[/red]")
     finally:
         session.close()
 
