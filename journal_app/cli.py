@@ -92,3 +92,73 @@ def view_entry_details():
         session.close()
 
 
+def search_entries():
+    """CLI function to search entries by date or keyword."""
+    console.print("\n[bold blue]--- Search Journal Entries ---[/bold blue]")
+    search_type = console.input("[bold yellow]Search by [D]ate or [K]eyword? (D/K): [/bold yellow]").lower()
+
+    session = get_session()
+    try:
+        if search_type == 'd':
+            date_str = console.input("[bold yellow]Enter date (YYYY-MM-DD): [/bold yellow]").strip()
+            try:
+                search_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                console.print("[red]Invalid date format. Please use YYYY-MM-DD.[/red]")
+                return
+
+            entries = session.query(Entry).filter(
+                Entry.date.like(f"{date_str}%") # Search for date part
+            ).order_by(Entry.date.desc()).all()
+
+            if not entries:
+                console.print(f"[yellow]No entries found for date {date_str}.[/yellow]")
+                return
+            console.print(f"[bold blue]--- Entries for {date_str} ---[/bold blue]")
+
+        elif search_type == 'k':
+            keyword = console.input("[bold yellow]Enter keyword: [/bold yellow]").strip()
+            if not keyword:
+                console.print("[red]Keyword cannot be empty. Aborting.[/red]")
+                return
+            
+            # Using ilike for case-insensitive search
+            entries = session.query(Entry).filter(
+                or_(
+                    Entry.title.ilike(f'%{keyword}%'),
+                    Entry.content.ilike(f'%{keyword}%')
+                )
+            ).order_by(Entry.date.desc()).all()
+
+            if not entries:
+                console.print(f"[yellow]No entries found containing '{keyword}'.[/yellow]")
+                return
+            console.print(f"[bold blue]--- Entries containing '{keyword}' ---[/bold blue]")
+
+        else:
+            console.print("[red]Invalid search type. Please choose 'D' or 'K'.[/red]")
+            return
+
+        # Display results (reusing the table formatting from view_all_entries)
+        table = RichTable(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim", width=5)
+        table.add_column("Date", style="cyan", width=18)
+        table.add_column("Title", style="green", max_width=40)
+        table.add_column("Tags", style="yellow")
+
+        for entry in entries:
+            tag_names = ", ".join([tag.name for tag in entry.tags]) if entry.tags else "None"
+            table.add_row(
+                str(entry.id),
+                entry.date.strftime('%Y-%m-%d %H:%M'),
+                entry.title,
+                tag_names
+            )
+        console.print(table)
+        console.print("[bold blue]---------------------------\n[/bold blue]")
+
+    except Exception as e:
+        console.print(f"[red]Error searching entries: {e}[/red]")
+    finally:
+        session.close()
+
