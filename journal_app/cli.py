@@ -38,3 +38,35 @@ def add_entry():
     finally:
         session.close()
 
+def view_all_entries():
+    """CLI function to view all journal entries."""
+    session = get_session()
+    try:
+        entries = session.query(Entry).order_by(Entry.date.desc()).all()
+        if not entries:
+            console.print("[yellow]No entries found.[/yellow]")
+            return
+
+        console.print("\n[bold blue]--- All Journal Entries ---[/bold blue]")
+        table = RichTable(show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim", width=5)
+        table.add_column("Date", style="cyan", width=18)
+        table.add_column("Title", style="green", max_width=40)
+        table.add_column("Tags", style="yellow")
+
+        for entry in entries:
+            tag_names = ", ".join([tag.name for tag in entry.tags]) if entry.tags else "None"
+            table.add_row(
+                str(entry.id),
+                entry.date.strftime('%Y-%m-%d %H:%M'),
+                entry.title,
+                tag_names
+            )
+        console.print(table)
+        console.print("[bold blue]---------------------------\n[/bold blue]")
+
+    except Exception as e:
+        console.print(f"[red]Error viewing entries: {e}[/red]")
+    finally:
+        session.close()
+
