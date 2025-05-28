@@ -364,6 +364,52 @@ def manage_tags_for_entry(entry_id: int, session: Session = None):
         if close_session_after:
             session.close()
 
+def delete_tag():
+    """CLI function to delete an existing tag."""
+    console.print("\n[bold blue]--- Delete Tag ---[/bold blue]")
+    
+    session = get_session()
+    try:
+        console.print("[bold yellow]Available Tags:[/bold yellow]")
+        tags = list_all_tags(session)
+
+        if not tags:
+            console.print("[yellow]No tags to delete.[/yellow]")
+            return
+
+        tag_name_or_id = console.input("[bold yellow]Enter Tag Name or ID to delete: [/bold yellow]").strip()
+        if not tag_name_or_id:
+            console.print("[red]Input cannot be empty. Aborting.[/red]")
+            return
+
+        tag_to_delete = None
+        try:
+            tag_id = int(tag_name_or_id)
+            tag_to_delete = session.query(Tag).filter_by(id=tag_id).first()
+        except ValueError:
+            tag_to_delete = session.query(Tag).filter_by(name=tag_name_or_id.capitalize()).first()
+
+        if not tag_to_delete:
+            console.print(f"[red]Tag '{tag_name_or_id}' not found.[/red]")
+            return
+        confirm = console.input(
+            f"[bold red]Are you sure you want to delete tag '{tag_to_delete.name}' (ID: {tag_to_delete.id})?\n"
+            f"This will remove it from all entries it's currently assigned to. (y/n): [/bold red]"
+        ).lower()
+
+        if confirm == 'y':
+            session.delete(tag_to_delete)
+            session.commit()
+            console.print(f"[green]Tag '{tag_to_delete.name}' deleted successfully.[/green]")
+        else:
+            console.print("[yellow]Tag deletion cancelled.[/yellow]")
+
+    except Exception as e:
+        session.rollback()
+        console.print(f"[red]Error deleting tag: {e}[/red]")
+    finally:
+        session.close()
+
 def view_entries_by_tag():
     """CLI function to view entries filtered by a specific tag."""
     console.print("\n[bold blue]--- View Entries by Tag ---[/bold blue]")

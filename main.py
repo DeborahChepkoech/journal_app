@@ -2,7 +2,7 @@ from journal_app.database import create_db_and_tables
 from journal_app.cli import (
     add_entry, view_all_entries, view_entry_details, search_entries,
     update_entry, delete_entry, create_tag, manage_tags_for_entry,
-    view_entries_by_tag, demonstrate_data_structures 
+    view_entries_by_tag, delete_tag
 )
 from rich.console import Console 
 
@@ -12,15 +12,15 @@ def display_menu():
     """Displays the main menu options to the user."""
     console.print("\n[bold green]--- Journal App Menu ---[/bold green]")
     console.print("[bold cyan]1.[/bold cyan] Add New Entry")
-    console.print("[bold cyan]2.[/bold cyan] View All Entries (Summary)")
+    console.print("[bold cyan]2.[/bold cyan] View All Entries")
     console.print("[bold cyan]3.[/bold cyan] View Entry Details (by ID)")
     console.print("[bold cyan]4.[/bold cyan] Search Entries")
     console.print("[bold cyan]5.[/bold cyan] Update Entry")
     console.print("[bold cyan]6.[/bold cyan] Delete Entry")
     console.print("[bold cyan]7.[/bold cyan] Create New Tag")
-    console.print("[bold cyan]8.[/bold cyan] Manage Tags for Entry (Add/Remove)")
+    console.print("[bold cyan]8.[/bold cyan] Manage Tags for Entry")
     console.print("[bold cyan]9.[/bold cyan] View Entries by Tag")
-    console.print("[bold cyan]D.[/bold cyan] Demonstrate Data Structures") 
+    console.print("[bold cyan]10.[/bold cyan] Delete Tag")
     console.print("[bold red]Q.[/bold red] Quit")
     console.print("[bold green]------------------------[/bold green]")
 
@@ -54,8 +54,8 @@ def run_application():
                 console.print("[red]Invalid ID. Please enter a number.[/red]")
         elif choice == '9':
             view_entries_by_tag()
-        elif choice == 'D':
-            demonstrate_data_structures()
+        elif choice == '10': 
+            delete_tag()
         elif choice == 'Q':
             console.print("[bold green]Exiting Journal App. Goodbye![/bold green]")
             break
