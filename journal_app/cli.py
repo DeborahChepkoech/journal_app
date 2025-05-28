@@ -70,3 +70,25 @@ def view_all_entries():
     finally:
         session.close()
 
+def view_entry_details():
+    """CLI function to view full details of a specific entry by ID."""
+    console.print("\n[bold blue]--- View Entry Details ---[/bold blue]")
+    try:
+        entry_id = int(console.input("[bold yellow]Enter Entry ID to view: [/bold yellow]"))
+    except ValueError:
+        console.print("[red]Invalid ID. Please enter a number.[/red]")
+        return
+
+    session = get_session()
+    try:
+        entry = session.query(Entry).filter_by(id=entry_id).first()
+        if entry:
+            console.print(entry.display())
+        else:
+            console.print(f"[red]Entry with ID {entry_id} not found.[/red]")
+    except Exception as e:
+        console.print(f"[red]Error viewing entry details: {e}[/red]")
+    finally:
+        session.close()
+
+
