@@ -1,9 +1,8 @@
-# journal_app/database.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from .models import Base  
 
-DATABASE_URL = "sqlite:///journal.db" # SQLite database file
+DATABASE_URL = "sqlite:///journal.db" 
 
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)

@@ -1,6 +1,5 @@
-# journal_app/cli.py
 from datetime import datetime
-from sqlalchemy import or_ # For complex queries like OR
+from sqlalchemy import or_ 
 from sqlalchemy.orm import Session
 from .models import Entry, Tag
 from .database import get_session
@@ -10,26 +9,43 @@ from rich.text import Text
 
 console = Console()
 
+
 def add_entry():
     """CLI function to add a new journal entry."""
-    console.print("\n[bold blue]--- Add New Journal Entry ---[/bold blue]")
-    title = console.input("[bold yellow]Enter title: [/bold yellow]").strip()
-    if not title:
-        console.print("[red]Title cannot be empty. Aborting.[/red]")
+    console.print("\n--- Add New Journal Entry ---")
+
+    title = console.input("Enter title:").strip()
+    if not title or title.lower() in ('q', 'quit'):
+        console.print("Operation cancelled. Returning to main menu.")
         return
-    content = console.input("[bold yellow]Enter content: [/bold yellow]").strip()
-    if not content:
-        console.print("[red]Content cannot be empty. Aborting.[/red]")
+    
+    content = console.input("Enter content:").strip()
+    if not content or content.lower() in ('q', 'quit'):
+        console.print("Operation cancelled. Returning to main menu.")
         return
 
-    session: Session = get_session() # Type hint for session
+    privacy_choice = console.input("Make this entry [P]rivate or [U]ublic? (P/U, default Private):").strip().lower()
+    is_private_status = True 
+    if privacy_choice == 'u':
+        is_private_status = False
+    elif privacy_choice in ('q', 'quit'):
+        console.print("Operation cancelled. Returning to main menu.")
+        return
+    
+
+    session: Session = get_session()
     try:
-        new_entry = Entry(title=title, content=content)
+        new_entry = Entry(title=title, content=content, is_private=is_private_status) 
         session.add(new_entry)
         session.commit()
-        console.print(f"[green]Entry '{title}' created successfully with ID {new_entry.id}.[/green]")
-        console.print("[bold cyan]Do you want to add tags to this entry? (y/n)[/bold cyan]")
-        if console.input().lower() == 'y':
+        console.print(f"Entry '{title}' created successfully with ID {new_entry.id}.")
+
+        console.print("Do you want to add tags to this entry? (y/n)")
+        tag_choice = console.input().lower()
+        if tag_choice in ('y', 'q', 'quit'):
+            if tag_choice in ('q', 'quit'):
+                console.print("Skipping tag assignment. Returning to main menu.")
+                return
             assign_tags_to_entry_by_id(new_entry.id, session)
 
     except Exception as e:
@@ -38,43 +54,47 @@ def add_entry():
     finally:
         session.close()
 
+
+
 def view_all_entries():
     """CLI function to view all journal entries."""
     session = get_session()
     try:
         entries = session.query(Entry).order_by(Entry.date.desc()).all()
         if not entries:
-            console.print("[yellow]No entries found.[/yellow]")
+            console.print("No entries found.")
             return
 
-        console.print("\n[bold blue]--- All Journal Entries ---[/bold blue]")
+        console.print("\n--- All Journal Entries ---")
         table = RichTable(show_header=True, header_style="bold magenta")
         table.add_column("ID", style="dim", width=5)
         table.add_column("Date", style="cyan", width=18)
-        table.add_column("Title", style="green", max_width=40)
+        table.add_column("Title", style="green", max_width=30)
+        table.add_column("Status", style="purple", width=10) 
         table.add_column("Tags", style="yellow")
 
         for entry in entries:
             tag_names = ", ".join([tag.name for tag in entry.tags]) if entry.tags else "None"
+            privacy_status = "Private" if entry.is_private else "Public" 
             table.add_row(
                 str(entry.id),
                 entry.date.strftime('%Y-%m-%d %H:%M'),
                 entry.title,
+                privacy_status, 
                 tag_names
             )
         console.print(table)
-        console.print("[bold blue]---------------------------\n[/bold blue]")
+        console.print("---------------------------\n")
 
     except Exception as e:
         console.print(f"[red]Error viewing entries: {e}[/red]")
     finally:
         session.close()
-
 def view_entry_details():
     """CLI function to view full details of a specific entry by ID."""
-    console.print("\n[bold blue]--- View Entry Details ---[/bold blue]")
+    console.print("\n--- View Entry Details ---")
     try:
-        entry_id = int(console.input("[bold yellow]Enter Entry ID to view: [/bold yellow]"))
+        entry_id = int(console.input("Enter Entry ID to view:"))
     except ValueError:
         console.print("[red]Invalid ID. Please enter a number.[/red]")
         return
@@ -94,35 +114,43 @@ def view_entry_details():
 
 def search_entries():
     """CLI function to search entries by date or keyword."""
-    console.print("\n[bold blue]--- Search Journal Entries ---[/bold blue]")
-    search_type = console.input("[bold yellow]Search by [D]ate or [K]eyword? (D/K): [/bold yellow]").lower()
+    console.print("\n--- Search Journal Entries ---")
+
+    search_type = console.input("Search by [D]ate or [K]eyword? (D/K):").strip().lower()
+    if search_type in ('q', 'quit'):
+        console.print("Operation cancelled. Returning to main menu.")
+        return
 
     session = get_session()
     try:
+        entries = [] 
+
         if search_type == 'd':
-            date_str = console.input("[bold yellow]Enter date (YYYY-MM-DD): [/bold yellow]").strip()
+            date_str = console.input("Enter date (YYYY-MM-DD): ").strip()
+            if date_str.lower() in ('q', 'quit'):
+                console.print("Operation cancelled. Returning to main menu.")
+                return
             try:
                 search_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             except ValueError:
-                console.print("[red]Invalid date format. Please use YYYY-MM-DD.[/red]")
+                console.print("[red]Invalid date format. Please use YYYY-MM-DD or 'q' to quit.[/red]")
                 return
 
             entries = session.query(Entry).filter(
-                Entry.date.like(f"{date_str}%") 
+                Entry.date.like(f"{date_str}%")
             ).order_by(Entry.date.desc()).all()
 
             if not entries:
-                console.print(f"[yellow]No entries found for date {date_str}.[/yellow]")
+                console.print(f"No entries found for date {date_str}.")
                 return
-            console.print(f"[bold blue]--- Entries for {date_str} ---[/bold blue]")
+            console.print(f"--- Entries for {date_str} ---")
 
         elif search_type == 'k':
-            keyword = console.input("[bold yellow]Enter keyword: [/bold yellow]").strip()
-            if not keyword:
-                console.print("[red]Keyword cannot be empty. Aborting.[/red]")
+            keyword = console.input("Enter keyword: ").strip()
+            if not keyword or keyword.lower() in ('q', 'quit'):
+                console.print("Operation cancelled. Returning to main menu.")
                 return
             
-            # Using ilike for case-insensitive search
             entries = session.query(Entry).filter(
                 or_(
                     Entry.title.ilike(f'%{keyword}%'),
@@ -131,30 +159,33 @@ def search_entries():
             ).order_by(Entry.date.desc()).all()
 
             if not entries:
-                console.print(f"[yellow]No entries found containing '{keyword}'.[/yellow]")
+                console.print(f"No entries found containing '{keyword}'.")
                 return
-            console.print(f"[bold blue]--- Entries containing '{keyword}' ---[/bold blue]")
+            console.print(f"--- Entries containing '{keyword}' ---")
 
         else:
-            console.print("[red]Invalid search type. Please choose 'D' or 'K'.[/red]")
+            console.print("[red]Invalid search type. Please choose 'D' or 'K' or 'q' to quit.[/red]")
             return
 
         table = RichTable(show_header=True, header_style="bold magenta")
         table.add_column("ID", style="dim", width=5)
         table.add_column("Date", style="cyan", width=18)
-        table.add_column("Title", style="green", max_width=40)
+        table.add_column("Title", style="green", max_width=30)
+        table.add_column("Status", style="purple", width=10)
         table.add_column("Tags", style="yellow")
 
         for entry in entries:
             tag_names = ", ".join([tag.name for tag in entry.tags]) if entry.tags else "None"
+            privacy_status = "Private" if entry.is_private else "Public" 
             table.add_row(
                 str(entry.id),
                 entry.date.strftime('%Y-%m-%d %H:%M'),
                 entry.title,
+                privacy_status, 
                 tag_names
             )
         console.print(table)
-        console.print("[bold blue]---------------------------\n[/bold blue]")
+        console.print("---------------------------\n")
 
     except Exception as e:
         console.print(f"[red]Error searching entries: {e}[/red]")
@@ -163,11 +194,18 @@ def search_entries():
 
 def update_entry():
     """CLI function to update an existing journal entry."""
-    console.print("\n[bold blue]--- Update Journal Entry ---[/bold blue]")
+    console.print("\n--- Update Journal Entry ---")
+    console.print("[dim]Type 'q' or 'quit' to return to the main menu.[/dim]")
+
+    entry_id_input = console.input("Enter Entry ID to update: ").strip()
+    if entry_id_input.lower() in ('q', 'quit'):
+        console.print("Operation cancelled. Returning to main menu.")
+        return
+
     try:
-        entry_id = int(console.input("[bold yellow]Enter Entry ID to update: [/bold yellow]"))
+        entry_id = int(entry_id_input)
     except ValueError:
-        console.print("[red]Invalid ID. Please enter a number.[/red]")
+        console.print("[red]Invalid ID. Please enter a number or 'q' to quit.[/red]")
         return
 
     session = get_session()
@@ -177,23 +215,45 @@ def update_entry():
             console.print(f"[red]Entry with ID {entry_id} not found.[/red]")
             return
 
-        console.print(f"[green]Found Entry (ID: {entry.id}): {entry.title}[/green]")
-        console.print("[bold yellow]Enter new title (leave blank to keep current): [/bold yellow]")
+        console.print(f"Found Entry (ID: {entry.id}): {entry.title} ({'Private' if entry.is_private else 'Public'})")
+
+        console.print("Enter new title (leave blank to keep current): ")
         new_title = console.input().strip()
+        if new_title.lower() in ('q', 'quit'): return
         if new_title:
             entry.title = new_title
 
-        console.print("[bold yellow]Enter new content (leave blank to keep current): [/bold yellow]")
+        console.print("Enter new content (leave blank to keep current): ")
         new_content = console.input().strip()
+        if new_content.lower() in ('q', 'quit'): return 
         if new_content:
             entry.content = new_content
 
-        session.commit()
-        console.print(f"[green]Entry ID {entry_id} updated successfully.[/green]")
+        current_privacy = "Private" if entry.is_private else "Public"
+        privacy_change_choice = console.input(f"Current status is {current_privacy}. Change to [P]rivate or [U]ublic? (P/U, leave blank to keep current): ").strip().lower()
+        if privacy_change_choice.lower() in ('q', 'quit'): return
 
-        # Option to update tags
-        console.print("[bold cyan]Do you want to modify tags for this entry? (y/n)[/bold cyan]")
-        if console.input().lower() == 'y':
+        if privacy_change_choice == 'p':
+            entry.is_private = True
+            console.print("Status set to Private.")
+        elif privacy_change_choice == 'u':
+            entry.is_private = False
+            console.print("Status set to Public.")
+        elif privacy_change_choice == '': 
+            pass
+        else:
+            console.print("Invalid privacy choice. Keeping current status.")
+      
+
+        session.commit()
+        console.print(f"Entry ID {entry_id} updated successfully.")
+
+        console.print("Do you want to modify tags for this entry? (y/n)")
+        tag_manage_choice = console.input().lower()
+        if tag_manage_choice in ('y', 'q', 'quit'):
+            if tag_manage_choice in ('q', 'quit'):
+                console.print("Skipping tag management. Returning to main menu.")
+                return
             manage_tags_for_entry(entry.id, session)
 
     except Exception as e:
@@ -204,9 +264,9 @@ def update_entry():
 
 def delete_entry():
     """CLI function to delete a journal entry."""
-    console.print("\n[bold blue]--- Delete Journal Entry ---[/bold blue]")
+    console.print("\n--- Delete Journal Entry ---")
     try:
-        entry_id = int(console.input("[bold yellow]Enter Entry ID to delete: [/bold yellow]"))
+        entry_id = int(console.input("Enter Entry ID to delete: "))
     except ValueError:
         console.print("[red]Invalid ID. Please enter a number.[/red]")
         return
@@ -222,9 +282,9 @@ def delete_entry():
         if confirm == 'y':
             session.delete(entry)
             session.commit()
-            console.print(f"[green]Entry ID {entry_id} deleted successfully.[/green]")
+            console.print(f"Entry ID {entry_id} deleted successfully.")
         else:
-            console.print("[yellow]Deletion cancelled.[/yellow]")
+            console.print("Deletion cancelled.")
 
     except Exception as e:
         session.rollback()
@@ -234,23 +294,23 @@ def delete_entry():
 
 def create_tag():
     """CLI function to create a new tag."""
-    console.print("\n[bold blue]--- Create New Tag ---[/bold blue]")
-    tag_name = console.input("[bold yellow]Enter new tag name: [/bold yellow]").strip().capitalize()
+    console.print("\n--- Create New Tag ---")
+    tag_name = console.input("Enter new tag name: ").strip().capitalize()
     if not tag_name:
         console.print("[red]Tag name cannot be empty. Aborting.[/red]")
         return
 
     session = get_session()
     try:
-        # Check if tag already exists
+    
         existing_tag = session.query(Tag).filter_by(name=tag_name).first()
         if existing_tag:
-            console.print(f"[yellow]Tag '{tag_name}' already exists with ID {existing_tag.id}.[/yellow]")
+            console.print(f"Tag '{tag_name}' already exists with ID {existing_tag.id}.")
         else:
             new_tag = Tag(name=tag_name)
             session.add(new_tag)
             session.commit()
-            console.print(f"[green]Tag '{tag_name}' created successfully with ID {new_tag.id}.[/green]")
+            console.print(f"Tag '{tag_name}' created successfully with ID {new_tag.id}.")
     except Exception as e:
         session.rollback()
         console.print(f"[red]Error creating tag: {e}[/red]")
@@ -267,15 +327,15 @@ def list_all_tags(session: Session = None):
     try:
         tags = session.query(Tag).order_by(Tag.name).all()
         if not tags:
-            console.print("[yellow]No tags found.[/yellow]")
+            console.print("No tags found.")
             return []
         
-        console.print("\n[bold blue]--- All Available Tags ---[/bold blue]")
+        console.print("\n--- All Available Tags ---")
         tag_data = []
         for tag in tags:
             tag_data.append((str(tag.id), tag.name))
-            console.print(f"[cyan]ID: {tag.id}[/cyan], [yellow]Name: {tag.name}[/yellow]")
-        console.print("[bold blue]--------------------------\n[/bold blue]")
+            console.print(f"[cyan]ID: {tag.id}[/cyan], Name: {tag.name}")
+        console.print("--------------------------\n")
         return tags 
     except Exception as e:
         console.print(f"[red]Error listing tags: {e}[/red]")
@@ -291,27 +351,27 @@ def assign_tags_to_entry_by_id(entry_id: int, session: Session):
         console.print(f"[red]Entry with ID {entry_id} not found.[/red]")
         return
 
-    console.print(f"\n[bold blue]--- Assign/Remove Tags for Entry '{entry.title}' (ID: {entry.id}) ---[/bold blue]")
+    console.print(f"\n--- Assign/Remove Tags for Entry '{entry.title}' (ID: {entry.id}) ---")
     
     current_tags = {tag.name for tag in entry.tags}
     if current_tags:
-        console.print(f"[yellow]Current Tags:[/yellow] {', '.join(current_tags)}")
+        console.print(f"Current Tags: {', '.join(current_tags)}")
     else:
-        console.print("[yellow]No current tags.[/yellow]")
+        console.print("No current tags.")
 
     available_tags = list_all_tags(session) 
 
     if not available_tags:
-        console.print("[yellow]No tags available to assign. Create some first![/yellow]")
+        console.print("No tags available to assign. Create some first!")
         return
 
-    console.print("[bold cyan]Enter tag names (comma-separated) to ADD or REMOVE. Press Enter to finish.[/bold cyan]")
-    console.print("[bold cyan]Example: 'tag1, +new_tag, -old_tag'[/bold cyan]")
+    console.print("Enter tag names (comma-separated) to ADD or REMOVE. Press Enter to finish.")
+    console.print("Example: 'tag1, +new_tag, -old_tag'")
     
-    tag_input = console.input("[bold yellow]Tags: [/bold yellow]").strip()
+    tag_input = console.input("Tags: ").strip()
 
     if not tag_input:
-        console.print("[yellow]No tags entered. Skipping tag assignment.[/yellow]")
+        console.print("No tags entered. Skipping tag assignment.")
         return
 
     tags_to_add = []
@@ -319,35 +379,35 @@ def assign_tags_to_entry_by_id(entry_id: int, session: Session):
 
     for tag_name in [t.strip() for t in tag_input.split(',') if t.strip()]:
         if tag_name.startswith('+'):
-            tags_to_add.append(tag_name[1:]) # Add tag
+            tags_to_add.append(tag_name[1:]) 
         elif tag_name.startswith('-'):
-            tags_to_remove.append(tag_name[1:]) # Remove tag
+            tags_to_remove.append(tag_name[1:]) 
         else:
-            tags_to_add.append(tag_name) # Default to add 
+            tags_to_add.append(tag_name) 
 
-    for name in set(tags_to_add): # Use set to handle duplicates
+    for name in set(tags_to_add): 
         tag_obj = session.query(Tag).filter_by(name=name.capitalize()).first()
         if not tag_obj:
-            console.print(f"[yellow]Tag '{name.capitalize()}' does not exist. Creating it.[/yellow]")
+            console.print(f"Tag '{name.capitalize()}' does not exist. Creating it.")
             tag_obj = Tag(name=name.capitalize())
             session.add(tag_obj)
-            session.flush() # Ensure new tag has an ID before relating
+            session.flush() 
         if tag_obj not in entry.tags:
             entry.tags.append(tag_obj)
-            console.print(f"[green]Assigned tag '{tag_obj.name}' to entry.[/green]")
+            console.print(f"Assigned tag '{tag_obj.name}' to entry.")
         else:
-            console.print(f"[yellow]Entry already has tag '{tag_obj.name}'.[/yellow]")
+            console.print(f"Entry already has tag '{tag_obj.name}'.")
 
     for name in set(tags_to_remove):
         tag_obj = session.query(Tag).filter_by(name=name.capitalize()).first()
         if tag_obj and tag_obj in entry.tags:
             entry.tags.remove(tag_obj)
-            console.print(f"[green]Removed tag '{tag_obj.name}' from entry.[/green]")
+            console.print(f"Removed tag '{tag_obj.name}' from entry.")
         else:
-            console.print(f"[yellow]Entry does not have tag '{name.capitalize()}' to remove, or tag not found.[/yellow]")
+            console.print(f"Entry does not have tag '{name.capitalize()}' to remove, or tag not found.")
 
     session.commit()
-    console.print(f"[green]Tags for Entry ID {entry_id} updated successfully.[/green]")
+    console.print(f"Tags for Entry ID {entry_id} updated successfully.")
 
 def manage_tags_for_entry(entry_id: int, session: Session = None):
     """Entry point for managing tags, can be called internally or via menu."""
@@ -366,18 +426,18 @@ def manage_tags_for_entry(entry_id: int, session: Session = None):
 
 def delete_tag():
     """CLI function to delete an existing tag."""
-    console.print("\n[bold blue]--- Delete Tag ---[/bold blue]")
+    console.print("\n--- Delete Tag ---")
     
     session = get_session()
     try:
-        console.print("[bold yellow]Available Tags:[/bold yellow]")
+        console.print("Available Tags:")
         tags = list_all_tags(session)
 
         if not tags:
-            console.print("[yellow]No tags to delete.[/yellow]")
+            console.print("No tags to delete.")
             return
 
-        tag_name_or_id = console.input("[bold yellow]Enter Tag Name or ID to delete: [/bold yellow]").strip()
+        tag_name_or_id = console.input("Enter Tag Name or ID to delete: ").strip()
         if not tag_name_or_id:
             console.print("[red]Input cannot be empty. Aborting.[/red]")
             return
@@ -400,9 +460,9 @@ def delete_tag():
         if confirm == 'y':
             session.delete(tag_to_delete)
             session.commit()
-            console.print(f"[green]Tag '{tag_to_delete.name}' deleted successfully.[/green]")
+            console.print(f"Tag '{tag_to_delete.name}' deleted successfully.")
         else:
-            console.print("[yellow]Tag deletion cancelled.[/yellow]")
+            console.print("Tag deletion cancelled.")
 
     except Exception as e:
         session.rollback()
@@ -410,80 +470,3 @@ def delete_tag():
     finally:
         session.close()
 
-def view_entries_by_tag():
-    """CLI function to view entries filtered by a specific tag."""
-    console.print("\n[bold blue]--- View Entries by Tag ---[/bold blue]")
-    
-    session = get_session()
-    try:
-        tags = list_all_tags(session) # List available tags
-        if not tags:
-            console.print("[yellow]No tags available to filter by.[/yellow]")
-            return
-
-        tag_name_input = console.input("[bold yellow]Enter tag name to filter by: [/bold yellow]").strip().capitalize()
-        if not tag_name_input:
-            console.print("[red]Tag name cannot be empty. Aborting.[/red]")
-            return
-
-        tag = session.query(Tag).filter_by(name=tag_name_input).first()
-        if not tag:
-            console.print(f"[red]Tag '{tag_name_input}' not found.[/red]")
-            return
-
-        entries = tag.entries 
-        if not entries:
-            console.print(f"[yellow]No entries found for tag '{tag_name_input}'.[/yellow]")
-            return
-
-        console.print(f"[bold blue]--- Entries tagged '{tag_name_input}' ---[/bold blue]")
-        table = RichTable(show_header=True, header_style="bold magenta")
-        table.add_column("ID", style="dim", width=5)
-        table.add_column("Date", style="cyan", width=18)
-        table.add_column("Title", style="green", max_width=40)
-        table.add_column("Tags", style="yellow") 
-
-        for entry in entries:
-            tag_names = ", ".join([t.name for t in entry.tags]) if entry.tags else "None"
-            table.add_row(
-                str(entry.id),
-                entry.date.strftime('%Y-%m-%d %H:%M'),
-                entry.title,
-                tag_names
-            )
-        console.print(table)
-        console.print("[bold blue]---------------------------\n[/bold blue]")
-
-    except Exception as e:
-        console.print(f"[red]Error viewing entries by tag: {e}[/red]")
-    finally:
-        session.close()
-
-def demonstrate_data_structures():
-    """A helper function to show explicit use of lists, dicts, tuples."""
-    console.print("\n[bold green]--- Demonstrating Data Structures ---[/bold green]")
-
-    operations = [
-        "Create Entry",
-        "View All Entries",
-        "Search Entries",
-        "Update Entry",
-        "Delete Entry"
-    ]
-    console.print(f"List of operations (list): {operations}")
-    
-    entry_data = {
-        "title": "My Day's Reflection",
-        "content": "Learned a lot about Python ORM.",
-        "date": datetime.now().strftime('%Y-%m-%d')
-    }
-    console.print(f"Entry data (dictionary): {entry_data}")
-    
-    valid_search_types = ('d', 'k')
-    console.print(f"Valid search types (tuple): {valid_search_types}")
-    def get_entry_summary(entry_id_val, title_val):
-        return (entry_id_val, title_val)
-
-    example_summary = get_entry_summary(101, "First Entry Title")
-    console.print(f"Entry summary (tuple): {example_summary}")
-    console.print("[bold green]-------------------------------------[/bold green]")

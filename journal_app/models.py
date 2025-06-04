@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.schema import Table
@@ -21,6 +21,7 @@ class Entry(Base):
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
     date = Column(DateTime, default=datetime.datetime.utcnow)
+    is_private = Column(Boolean, default=True, nullable=False)
 
     
     tags = relationship(
@@ -30,15 +31,18 @@ class Entry(Base):
     )
 
     def __repr__(self):
+        privacy_status = "Private" if self.is_private else "Public"
         return f"<Entry(id={self.id}, title='{self.title}', date='{self.date.strftime('%Y-%m-%d %H:%M')}')>"
 
     def display(self):
         """Returns a formatted string for displaying an entry."""
         tag_names = ", ".join([tag.name for tag in self.tags]) if self.tags else "No Tags"
+        privacy_status = "PRIVATE" if self.is_private else "PUBLIC"
         return (
             f"\n--- Entry ID: {self.id} ---\n"
             f"Title: {self.title}\n"
             f"Date: {self.date.strftime('%Y-%m-%d %H:%M')}\n"
+            f"Status: {privacy_status}\n"
             f"Tags: {tag_names}\n"
             f"Content:\n{self.content}\n"
             f"-------------------------"

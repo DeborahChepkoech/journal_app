@@ -1,8 +1,7 @@
 from journal_app.database import create_db_and_tables
 from journal_app.cli import (
     add_entry, view_all_entries, view_entry_details, search_entries,
-    update_entry, delete_entry, create_tag, manage_tags_for_entry,
-    view_entries_by_tag, delete_tag
+    update_entry, delete_entry, create_tag, manage_tags_for_entry, delete_tag
 )
 from rich.console import Console 
 
@@ -10,19 +9,18 @@ console = Console()
 
 def display_menu():
     """Displays the main menu options to the user."""
-    console.print("\n[bold green]--- Journal App Menu ---[/bold green]")
-    console.print("[bold cyan]1.[/bold cyan] Add New Entry")
-    console.print("[bold cyan]2.[/bold cyan] View All Entries")
-    console.print("[bold cyan]3.[/bold cyan] View Entry Details (by ID)")
-    console.print("[bold cyan]4.[/bold cyan] Search Entries")
-    console.print("[bold cyan]5.[/bold cyan] Update Entry")
-    console.print("[bold cyan]6.[/bold cyan] Delete Entry")
-    console.print("[bold cyan]7.[/bold cyan] Create New Tag")
-    console.print("[bold cyan]8.[/bold cyan] Manage Tags for Entry")
-    console.print("[bold cyan]9.[/bold cyan] View Entries by Tag")
-    console.print("[bold cyan]10.[/bold cyan] Delete Tag")
+    console.print("\n--- Journal App Menu ---")
+    console.print("1. Add New Entry")
+    console.print("2. View All Entries")
+    console.print("3. View Entry Details (by ID)")
+    console.print("4. Search Entries")
+    console.print("5. Update Entry")
+    console.print("6. Delete Entry")
+    console.print("7. Create New Tag")
+    console.print("8. Manage Tags for Entry")
+    console.print("9. Delete Tag")
     console.print("[bold red]Q.[/bold red] Quit")
-    console.print("[bold green]------------------------[/bold green]")
+    console.print("------------------------")
 
 def run_application():
     """Main loop for the CLI application."""
@@ -30,7 +28,7 @@ def run_application():
 
     while True:
         display_menu()
-        choice = console.input("[bold yellow]Enter your choice: [/bold yellow]").strip().upper()
+        choice = console.input("Enter your choice: ").strip().upper()
 
         if choice == '1':
             add_entry()
@@ -48,16 +46,14 @@ def run_application():
             create_tag()
         elif choice == '8':
             try:
-                entry_id = int(console.input("[bold yellow]Enter Entry ID to manage tags for: [/bold yellow]"))
+                entry_id = int(console.input("Enter Entry ID to manage tags for: "))
                 manage_tags_for_entry(entry_id)
             except ValueError:
                 console.print("[red]Invalid ID. Please enter a number.[/red]")
-        elif choice == '9':
-            view_entries_by_tag()
-        elif choice == '10': 
+        elif choice == '9': 
             delete_tag()
         elif choice == 'Q':
-            console.print("[bold green]Exiting Journal App. Goodbye![/bold green]")
+            console.print("Exiting Journal App. Goodbye!")
             break
         else:
             console.print("[red]Invalid choice. Please try again.[/red]")
